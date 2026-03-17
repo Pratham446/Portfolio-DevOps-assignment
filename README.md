@@ -1,9 +1,9 @@
 # DevOps Assignment - LDC
 
-**Student:** Shreeganesh Vishwakarma  
+**Student:** Pratham Darji 
 **Institute:** K J Somaiya Institute of Technology  
 **Cloud Provider:** Amazon Web Services (AWS) - ap-south-1 (Mumbai)  
-**Live Application:** http://43.205.103.220:5000
+**Live Application:** http://13.127.174.60:5000/
 
 ---
 
@@ -12,36 +12,6 @@
 This project demonstrates a complete DevSecOps workflow where infrastructure is provisioned on AWS using Terraform, a Python web application is containerized using Docker, and a Jenkins CI/CD pipeline automatically scans the infrastructure code for security vulnerabilities before deployment.
 
 The goal was to ensure that infrastructure deployed to the cloud is secure by default. The pipeline intentionally includes a security vulnerability which is detected by Trivy, analyzed, and then fixed before the infrastructure is provisioned.
-
----
-
-## Architecture
-
-```
-GitHub Repository
-      |
-      v
-Jenkins Pipeline (running locally via Docker)
-      |
-      |-- Stage 1: Checkout (pulls code from GitHub)
-      |-- Stage 2: Trivy Security Scan (scans Terraform files)
-      |-- Stage 3: Terraform Plan (validates infrastructure)
-      |
-      v
-AWS ap-south-1 (Mumbai)
-      |
-      |-- VPC (10.0.0.0/16)
-      |-- Public Subnet (10.0.1.0/24)
-      |-- Internet Gateway
-      |-- Security Group (ports 80, 5000)
-      |-- EC2 t3.micro (Ubuntu 22.04)
-            |
-            v
-      Docker Container
-            |
-            v
-      Python Flask App (port 5000)
-```
 
 ---
 
@@ -67,10 +37,6 @@ To run locally:
 ```
 docker-compose up --build
 ```
-
-Access at: http://localhost:5000
-
----
 
 ## Infrastructure as Code (Terraform)
 
@@ -184,32 +150,7 @@ The vulnerability allowed the EC2 instance to make outbound connections to any I
 
 **How AI Recommendations Improved Security**
 
-The AI explained that the fix was to replace the open-ended egress rule with specific rules that only allow outbound traffic on port 80 (HTTP) and port 443 (HTTPS). This is the minimum required for the application to function - it needs to pull packages and communicate with external services over standard web ports. All other outbound traffic is now blocked by default, significantly reducing the attack surface of the deployed instance.
-
----
-
-## Repository Structure
-
-```
-devops-assignment-2026/
-    app/
-        app.py
-        requirements.txt
-        templates/
-            index.html
-    terraform/
-        main.tf
-        variables.tf
-        outputs.tf
-    screenshots/
-        jenkins-fail.png
-        jenkins-pass.png
-        app-running.png
-    Dockerfile
-    docker-compose.yml
-    Jenkinsfile
-    README.md
-```
+The AI explained that the fix was to replace the open-ended egress rule with specific rules that only allow outbound traffic on port 80 (HTTP) and port 443 (HTTPS). This is the minimum required for the application to function - it needs to pull packages and communicate with external services over standard web ports. All other outbound traffic is now blocked by default, significantly reducing the attack surface of the deployed instance.``
 
 ---
 
@@ -221,4 +162,4 @@ devops-assignment-2026/
 - README.md with GenAI Usage Report - included
 - Screenshots - included in screenshots/ directory
 - Video recording - submitted separately
-- Live application - http://43.205.103.220:5000
+- Live application - http://13.127.174.60:5000/
