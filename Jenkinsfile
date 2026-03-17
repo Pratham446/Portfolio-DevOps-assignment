@@ -4,6 +4,7 @@ pipeline {
     environment {
         PROJECT_NAME = 'devsecops-app'
         TRIVY_REPORT = 'trivy-report.txt'
+        AWS_DEFAULT_REGION = 'ap-south-1'
     }
 
     stages {
@@ -32,21 +33,19 @@ pipeline {
                 echo '============================================'
 
                 script {
-                    // Run Trivy scan and save report
                     def scanResult = sh(
                         script: """
                             trivy config ./terraform \
-                                --severity LOW,MEDIUM,HIGH,CRITICAL \
-                                --exit-code 0 \
-                                --format table \
-                                2>&1 | tee ${TRIVY_REPORT}
+                            --severity LOW,MEDIUM,HIGH,CRITICAL \
+                            --exit-code 0 \
+                            --format table \
+                            2>&1 | tee ${TRIVY_REPORT}
                         """,
                         returnStdout: true
                     ).trim()
 
                     echo scanResult
 
-                    // Check for CRITICAL issues
                     def criticalCount = sh(
                         script: "grep -c 'CRITICAL' ${TRIVY_REPORT} || true",
                         returnStdout: true
@@ -64,11 +63,7 @@ pipeline {
                     echo '--------------------------------------------'
 
                     if (criticalCount > 0) {
-                        echo '⚠️  ================================================'
-                        echo '⚠️  CRITICAL VULNERABILITIES FOUND!'
-                        echo '⚠️  Review the report above and use AI to fix them'
-                        echo '⚠️  ================================================'
-                        error("❌ Pipeline failed: ${criticalCount} CRITICAL security issue(s) found in Terraform code. Use AI remediation to fix.")
+                        error("❌ Pipeline failed: ${criticalCount} CRITICAL vulnerabilities found!")
                     } else {
                         echo '✅ No CRITICAL vulnerabilities found. Proceeding...'
                     }
@@ -76,20 +71,14 @@ pipeline {
             }
             post {
                 always {
-                    echo '📄 Trivy scan report saved to: trivy-report.txt'
+                    echo '📄 Trivy scan report saved'
                     archiveArtifacts artifacts: "${TRIVY_REPORT}", allowEmptyArchive: true
-                }
-                failure {
-                    echo '❌ Security scan FAILED — fix vulnerabilities before proceeding!'
-                }
-                success {
-                    echo '✅ Security scan PASSED — no critical issues!'
                 }
             }
         }
 
         // ─────────────────────────────────────────
-        // STAGE 3: Terraform Plan
+        // STAGE 3: Terraform Plan (WITH AWS CREDS)
         // ─────────────────────────────────────────
         stage('Terraform Plan') {
             steps {
@@ -98,15 +87,25 @@ pipeline {
                 echo '============================================'
 
                 dir('terraform') {
-                    sh 'terraform init -input=false'
-                    sh 'terraform validate'
-                    sh 'terraform plan -input=false -out=tfplan'
-                    echo '✅ Terraform plan completed successfully'
+
+                    // 🔥 THIS IS WHERE withCredentials IS USED
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds'
+                    ]]) {
+
+                        sh '''
+                            export AWS_DEFAULT_REGION=ap-south-1
+                            terraform init -input=false
+                            terraform validate
+                            terraform plan -input=false -out=tfplan
+                        '''
+                    }
                 }
             }
             post {
                 success {
-                    echo '✅ Infrastructure plan is valid and ready for deployment'
+                    echo '✅ Terraform plan completed successfully'
                 }
                 failure {
                     echo '❌ Terraform plan failed — check configuration'
@@ -123,7 +122,7 @@ pipeline {
         }
         failure {
             echo '============================================'
-            echo '❌ PIPELINE FAILED — Check stage logs above'
+            echo '❌ PIPELINE FAILED — Check logs above'
             echo '============================================'
         }
         always {
