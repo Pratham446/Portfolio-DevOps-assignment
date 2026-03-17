@@ -1,6 +1,5 @@
 # ============================================================
-# main.tf — AWS Infrastructure for DevSecOps Assignment
-# NOTE: Contains intentional vulnerability for Trivy scanning
+# SECURE main.tf — DevSecOps Assignment (FIXED VERSION)
 # ============================================================
 
 terraform {
@@ -39,12 +38,12 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
-# ─── Public Subnet ──────────────────────────────────────────
+# ─── Public Subnet (LIMITED USE) ────────────────────────────
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false   # 🔐 FIXED
 
   tags = {
     Name    = "${var.project_name}-public-subnet"
@@ -72,24 +71,22 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# ─── Security Group ─────────────────────────────────────────
-# ⚠️  INTENTIONAL VULNERABILITY: SSH open to 0.0.0.0/0
-# This will be detected by Trivy and fixed using AI remediation
+# ─── Security Group (SECURED) ───────────────────────────────
 resource "aws_security_group" "web" {
   name        = "${var.project_name}-sg"
-  description = "Security group for web application"
+  description = "Secure SG for web app"
   vpc_id      = aws_vpc.main.id
 
-  # VULNERABILITY: SSH open to entire internet
+  # 🔐 SSH only from YOUR IP
   ingress {
-    description = "SSH from anywhere - INSECURE"
+    description = "SSH restricted"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["13.127.174.60/32"]
   }
 
-  # Allow HTTP
+  # HTTP
   ingress {
     description = "HTTP"
     from_port   = 80
@@ -98,32 +95,24 @@ resource "aws_security_group" "web" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow app port
+  # App port
   ingress {
-    description = "App port"
+    description = "App"
     from_port   = 5000
     to_port     = 5000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow all outbound
-  # Allow only HTTP outbound - AI remediation fix
-egress {
-  description = "Allow HTTP outbound only"
-  from_port   = 80
-  to_port     = 80
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-}
+  # 🔐 Restricted outbound (NO full open)
+  egress {
+    description = "HTTPS only"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-egress {
-  description = "Allow HTTPS outbound only"
-  from_port   = 443
-  to_port     = 443
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-}
   tags = {
     Name    = "${var.project_name}-sg"
     Project = var.project_name
@@ -140,13 +129,23 @@ resource "aws_key_pair" "deployer" {
   }
 }
 
-# ─── EC2 Instance ───────────────────────────────────────────
+# ─── EC2 Instance (SECURED) ─────────────────────────────────
 resource "aws_instance" "web" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.web.id]
   key_name               = aws_key_pair.deployer.key_name
+
+  # 🔐 IMDSv2 ENABLED
+  metadata_options {
+    http_tokens = "required"
+  }
+
+  # 🔐 ENCRYPTED STORAGE
+  root_block_device {
+    encrypted = true
+  }
 
   user_data = <<-EOF
     #!/bin/bash
@@ -162,4 +161,12 @@ resource "aws_instance" "web" {
     Name    = "${var.project_name}-server"
     Project = var.project_name
   }
+}
+
+# ─── VPC FLOW LOGS (SECURITY) ───────────────────────────────
+resource "aws_flow_log" "vpc_flow_log" {
+  vpc_id               = aws_vpc.main.id
+  traffic_type         = "ALL"
+  log_destination_type = "cloud-watch-logs"
+  log_group_name       = "/aws/vpc/flowlogs"
 }
