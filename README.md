@@ -3,7 +3,7 @@
 **Student:** Pratham Darji 
 **Institute:** K J Somaiya Institute of Technology  
 **Cloud Provider:** Amazon Web Services (AWS) - ap-south-1 (Mumbai)  
-**Live Application:** http://13.127.174.60:5000/
+**Live Application:** http://3.110.88.30:5000/
 
 ---
 
